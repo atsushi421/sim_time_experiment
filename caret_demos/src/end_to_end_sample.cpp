@@ -10,16 +10,6 @@
 
 using namespace std::chrono_literals;
 
-std::chrono::milliseconds lognormal_distribution(double max)
-{
-  static std::random_device seed_gen;
-  static std::default_random_engine engine(seed_gen());
-  static std::lognormal_distribution<> dist(1.1, 1.7);
-
-  int sleep_ms = std::max(std::min(dist(engine), max), 20.0);
-  return std::chrono::milliseconds(sleep_ms);
-}
-
 class TimerDependencyNode : public rclcpp::Node
 {
 public:
@@ -33,7 +23,7 @@ public:
       sub_topic_name, QOS_HISTORY_SIZE,
       [&](sensor_msgs::msg::Image::UniquePtr msg)
       {
-        rclcpp::sleep_for(lognormal_distribution(45));
+        rclcpp::sleep_for(std::chrono::milliseconds(45));
         msg_ = std::move(msg);
       });
 
@@ -41,7 +31,7 @@ public:
     timer_ = create_wall_timer(
       std::chrono::milliseconds(period_ms), [&]()
       {
-        rclcpp::sleep_for(lognormal_distribution(45));
+        rclcpp::sleep_for(std::chrono::milliseconds(45));
         if (msg_) {
           pub_->publish(*msg_);
         }
@@ -53,46 +43,6 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub_;
   sensor_msgs::msg::Image::UniquePtr msg_;
   rclcpp::TimerBase::SharedPtr timer_;
-};
-
-class ActuatorDummy : public rclcpp::Node
-{
-public:
-  ActuatorDummy(std::string node_name, std::string sub_topic_name)
-  : Node(node_name)
-  {
-    sub_ = create_subscription<sensor_msgs::msg::Image>(
-      sub_topic_name, QOS_HISTORY_SIZE,
-      [&](sensor_msgs::msg::Image::UniquePtr msg)
-      {
-        rclcpp::sleep_for(lognormal_distribution(80));
-        (void)msg;
-      }
-    );
-  }
-
-private:
-  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub_;
-};
-
-class NoDependencyNode : public rclcpp::Node
-{
-public:
-  NoDependencyNode(std::string node_name, std::string sub_topic_name, std::string pub_topic_name)
-  : Node(node_name)
-  {
-    pub_ = create_publisher<sensor_msgs::msg::Image>(pub_topic_name, QOS_HISTORY_SIZE);
-    sub_ = create_subscription<sensor_msgs::msg::Image>(
-      sub_topic_name, QOS_HISTORY_SIZE, [&](sensor_msgs::msg::Image::UniquePtr msg)
-      {
-        rclcpp::sleep_for(lognormal_distribution(200));
-        pub_->publish(std::move(msg));
-      });
-  }
-
-private:
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_;
-  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub_;
 };
 
 class SubDependencyNode : public rclcpp::Node
@@ -111,14 +61,14 @@ public:
       {
         auto msg_tmp = std::make_unique<sensor_msgs::msg::Image>();
         msg_tmp->header.stamp = msg->header.stamp;
-        rclcpp::sleep_for(lognormal_distribution(45));
+        rclcpp::sleep_for(std::chrono::milliseconds(45));
         msg_ = std::move(msg);
       });
     sub2_ = create_subscription<sensor_msgs::msg::Image>(
       subsequent_sub_topic_name, QOS_HISTORY_SIZE, [&](sensor_msgs::msg::Image::UniquePtr msg)
       {
         (void)msg;
-        rclcpp::sleep_for(lognormal_distribution(45));
+        rclcpp::sleep_for(std::chrono::milliseconds(45));
         if (msg_) {
           pub_->publish(std::move(msg_));
         }
@@ -151,7 +101,7 @@ public:
 
     auto callback = [&]() {
         auto msg = std::make_unique<sensor_msgs::msg::Image>();
-        rclcpp::sleep_for(lognormal_distribution(50));
+        rclcpp::sleep_for(std::chrono::milliseconds(50));
         msg->header.stamp = now();
         pub_->publish(std::move(msg));
       };
@@ -172,14 +122,10 @@ int main(int argc, char * argv[])
 
   std::vector<std::shared_ptr<rclcpp::Node>> nodes;
 
-  nodes.emplace_back(std::make_shared<ActuatorDummy>("actuator_dummy_node", "/topic4"));
-  nodes.emplace_back(
-    std::make_shared<NoDependencyNode>("filter_node", "/topic1", "/topic2"));
   nodes.emplace_back(
     std::make_shared<SubDependencyNode>("message_driven_node", "/topic2", "/drive", "/topic3"));
   nodes.emplace_back(
     std::make_shared<TimerDependencyNode>("timer_driven_node", "/topic3", "/topic4", 100)); // 10Hz
-  nodes.emplace_back(std::make_shared<SensorDummy>("sensor_dummy_node", "/topic1", 100)); // 10Hz
   nodes.emplace_back(std::make_shared<SensorDummy>("drive_node", "/drive", 100)); // 10Hz
 
   for (auto & node : nodes) {
