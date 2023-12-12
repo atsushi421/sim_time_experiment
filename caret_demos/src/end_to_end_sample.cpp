@@ -18,14 +18,13 @@ public:
   TimerDependencyNode(
     std::string node_name, std::string sub_topic_name, std::string pub_topic_name,
     int period_ms)
-  : Node(node_name)
+  : Node(node_name), count_(0)
   {
     pub_ = create_publisher<std_msgs::msg::Int64>(pub_topic_name, QOS_HISTORY_SIZE);
     sub_ = create_subscription<std_msgs::msg::Int64>(
       sub_topic_name, QOS_HISTORY_SIZE,
       [&](std_msgs::msg::Int64::UniquePtr msg)
       {
-        rclcpp::sleep_for(std::chrono::milliseconds(45));
         received_msgs_.push_back(msg->data);
         if (received_msgs_.size() > 10) {
           received_msgs_.pop_front();
@@ -36,11 +35,10 @@ public:
     timer_ = create_wall_timer(
       std::chrono::milliseconds(period_ms), [&]()
       {
-        rclcpp::sleep_for(std::chrono::milliseconds(45));
-        RCLCPP_INFO(this->get_logger(), "Count: '%ld'", count_++);
+        log_file_ << "Timer trigger ID: " << count_++ << std::endl;
         while (!received_msgs_.empty()) {
             int64_t msg = received_msgs_.front();
-            RCLCPP_INFO(this->get_logger(), "Received message: '%ld'", msg);
+            log_file_ << "Received message ID: " << msg << std::endl;
             received_msgs_.pop_front();
         }
       });
@@ -62,39 +60,11 @@ private:
   int64_t count_;
 };
 
-class SubDependencyNode : public rclcpp::Node
-{
-public:
-  SubDependencyNode(
-    std::string node_name,
-    std::string subsequent_sub_topic_name,
-    std::string pub_topic_name
-  )
-  : Node(node_name)
-  {
-    sub = create_subscription<std_msgs::msg::Int64>(
-      subsequent_sub_topic_name, QOS_HISTORY_SIZE, [&](std_msgs::msg::Int64::UniquePtr msg)
-      {
-        (void)msg;
-        rclcpp::sleep_for(std::chrono::milliseconds(45));
-        if (msg_) {
-          pub_->publish(std::move(msg_));
-        }
-      });
-    pub_ = create_publisher<std_msgs::msg::Int64>(pub_topic_name, QOS_HISTORY_SIZE);
-  }
-
-private:
-  rclcpp::Publisher<std_msgs::msg::Int64>::SharedPtr pub_;
-  rclcpp::Subscription<std_msgs::msg::Int64>::SharedPtr sub;
-  std_msgs::msg::Int64::UniquePtr msg_;
-};
-
 class SensorDummy : public rclcpp::Node
 {
 public:
   SensorDummy(std::string node_name, std::string topic_name, int period_ms)
-  : Node(node_name)
+  : Node(node_name), count_(0)
   {
     this->declare_parameter<bool>("use_rosbag", false);
     bool use_rosbag = false;
@@ -108,7 +78,8 @@ public:
 
     auto callback = [&]() {
         auto msg = std::make_unique<std_msgs::msg::Int64>();
-        rclcpp::sleep_for(std::chrono::milliseconds(50));
+        msg->data = count_++;
+        rclcpp::sleep_for(std::chrono::milliseconds(10));
         pub_->publish(std::move(msg));
       };
     pub_ = create_publisher<std_msgs::msg::Int64>(topic_name, QOS_HISTORY_SIZE);
@@ -118,6 +89,7 @@ public:
 private:
   rclcpp::Publisher<std_msgs::msg::Int64>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr timer_;
+  int64_t count_;
 };
 
 int main(int argc, char * argv[])
@@ -128,11 +100,9 @@ int main(int argc, char * argv[])
 
   std::vector<std::shared_ptr<rclcpp::Node>> nodes;
 
-  nodes.emplace_back(std::make_shared<SensorDummy>("drive_node", "/drive", 3000));
+  nodes.emplace_back(std::make_shared<SensorDummy>("drive_node", "/drive", 300));
   nodes.emplace_back(
-    std::make_shared<SubDependencyNode>("message_driven_node", "/drive", "/topic3"));
-  nodes.emplace_back(
-    std::make_shared<TimerDependencyNode>("timer_driven_node", "/topic3", "/topic4", 10000));
+    std::make_shared<TimerDependencyNode>("timer_driven_node", "/drive", "/topic4", 1000));
 
   for (auto & node : nodes) {
     executor->add_node(node);
