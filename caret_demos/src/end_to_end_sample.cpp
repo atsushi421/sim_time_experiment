@@ -43,7 +43,7 @@ public:
         }
       });
 
-      log_file_.open("output/1.0/sub_timer_node_log.txt", std::ios::out | std::ios::app);
+      log_file_.open("output/0.5/sub_timer_node_log.txt", std::ios::out | std::ios::app);
   }
 
   ~TimerDependencyNode()
