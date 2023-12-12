@@ -31,8 +31,7 @@ public:
         }
       });
 
-
-    timer_ = create_wall_timer(
+    timer_ = rclcpp::create_timer(this, get_clock(),
       std::chrono::milliseconds(period_ms), [&]()
       {
         log_file_ << "Timer trigger ID: " << count_++ << std::endl;
