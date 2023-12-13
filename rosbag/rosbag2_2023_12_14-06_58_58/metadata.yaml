@@ -2,25 +2,25 @@ rosbag2_bagfile_information:
   version: 5
   storage_identifier: sqlite3
   duration:
-    nanoseconds: 17100051205
+    nanoseconds: 32099887135
   starting_time:
-    nanoseconds_since_epoch: 1702504318787959962
-  message_count: 58
+    nanoseconds_since_epoch: 1702504740056921363
+  message_count: 108
   topics_with_message_count:
     - topic_metadata:
         name: /drive
         type: std_msgs/msg/Int64
         serialization_format: cdr
         offered_qos_profiles: "- history: 1\n  depth: 10\n  reliability: 1\n  durability: 2\n  deadline:\n    sec: 9223372036\n    nsec: 854775807\n  lifespan:\n    sec: 9223372036\n    nsec: 854775807\n  liveliness: 1\n  liveliness_lease_duration:\n    sec: 9223372036\n    nsec: 854775807\n  avoid_ros_namespace_conventions: false"
-      message_count: 58
+      message_count: 108
   compression_format: ""
   compression_mode: ""
   relative_file_paths:
-    - rosbag2_2023_12_14-06_51_57_0.db3
+    - rosbag2_2023_12_14-06_58_58_0.db3
   files:
-    - path: rosbag2_2023_12_14-06_51_57_0.db3
+    - path: rosbag2_2023_12_14-06_58_58_0.db3
       starting_time:
-        nanoseconds_since_epoch: 1702504318787959962
+        nanoseconds_since_epoch: 1702504740056921363
       duration:
-        nanoseconds: 17100051205
-      message_count: 58
+        nanoseconds: 32099887135
+      message_count: 108
