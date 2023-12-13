@@ -91,7 +91,7 @@ public:
 
       auto now_wall_ns = duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count();
       log_file_ << now_wall_ns << " " << this->get_clock()->now().nanoseconds()
-                << " [SensorDummy] Timer trigger ID: " << timer_count_++ << std::endl;
+                << " [SensorDummy] Timer trigger ID: " << timer_count_ << std::endl;
       pub_->publish(std::move(msg));
     };
 
