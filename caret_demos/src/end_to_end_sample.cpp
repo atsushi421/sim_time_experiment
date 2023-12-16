@@ -28,21 +28,24 @@ public:
 
     sub_ = create_subscription<std_msgs::msg::Int64>(
       sub_topic_name, QOS_HISTORY_SIZE, [&](std_msgs::msg::Int64::UniquePtr msg) {
+        sub_count_++;
         auto now_wall_ns =
           duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count();
         log_file_ << now_wall_ns << " " << this->get_clock()->now().nanoseconds()
-                  << " [TimerDependencyNode] Sub trigger ID: " << sub_count_++ << std::endl;
+                  << " [TimerDependencyNode] Sub Start. ID: " << sub_count_ << std::endl;
 
+        dummy_work();
         received_msgs_.push_back(msg->data);
-        if (received_msgs_.size() > 10) {
-          received_msgs_.pop_front();
-        }
+
+        now_wall_ns = duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count();
+        log_file_ << now_wall_ns << " " << this->get_clock()->now().nanoseconds()
+                  << " [TimerDependencyNode] Sub End. ID: " << sub_count_ << std::endl;
       });
 
     timer_ = rclcpp::create_timer(this, get_clock(), milliseconds(period_ms), [&]() {
       auto now_wall_ns = duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count();
       log_file_ << now_wall_ns << " " << this->get_clock()->now().nanoseconds()
-                << " [TimerDependencyNode] Timer trigger ID: " << timer_count_++ << std::endl;
+                << " [TimerDependencyNode] Timer triggered. ID: " << timer_count_++ << std::endl;
 
       while (!received_msgs_.empty()) {
         int64_t msg = received_msgs_.front();
@@ -61,6 +64,15 @@ private:
   std::ofstream log_file_;
   int64_t sub_count_;
   int64_t timer_count_;
+
+  // approx. 175ms
+  void dummy_work()
+  {
+    long long sum = 0;
+    for (int i = 0; i < 50000000; i++) {
+      sum += i;
+    }
+  }
 };
 
 class SensorDummy : public rclcpp::Node
@@ -77,21 +89,9 @@ public:
       return;
     }
 
-    this->declare_parameter<std::string>(
-      "log_path", "/home/atsushi/sim_time_experiment/output/log.txt");
-    std::string log_path;
-    this->get_parameter("log_path", log_path);
-    log_file_.open(log_path, std::ios::out | std::ios::app);
-
     auto callback = [&]() {
       auto msg = std::make_unique<std_msgs::msg::Int64>();
       msg->data = timer_count_++;
-
-      rclcpp::sleep_for(milliseconds(10));
-
-      auto now_wall_ns = duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count();
-      log_file_ << now_wall_ns << " " << this->get_clock()->now().nanoseconds()
-                << " [SensorDummy] Timer trigger ID: " << timer_count_ << std::endl;
       pub_->publish(std::move(msg));
     };
 
@@ -100,12 +100,9 @@ public:
     timer_ = create_wall_timer(period, callback);
   }
 
-  ~SensorDummy() { log_file_.close(); }
-
 private:
   rclcpp::Publisher<std_msgs::msg::Int64>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr timer_;
-  std::ofstream log_file_;
   int64_t timer_count_;
 };
 
